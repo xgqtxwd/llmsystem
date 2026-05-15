@@ -54,6 +54,21 @@
             </div>
           </div>
         </div>
+
+        <div v-if="messages.length > 0 && !loading" class="suggested-section">
+          <p class="suggested-title">推荐提问</p>
+          <div class="quick-questions">
+            <span
+              v-for="(q, index) in quickQuestions"
+              :key="index"
+              class="quick-tag"
+              :style="{ animationDelay: (index * 0.1) + 's' }"
+              @click="selectQuestion(q)"
+            >
+              {{ q }}
+            </span>
+          </div>
+        </div>
       </template>
     </div>
 
@@ -236,6 +251,21 @@ onMounted(() => {
   gap: 10px;
   justify-content: center;
   max-width: 340px;
+}
+
+.suggested-section {
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.suggested-title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
 }
 
 .quick-tag {

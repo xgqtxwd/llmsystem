@@ -3,6 +3,7 @@ import httpx
 from typing import Optional, Dict, Any, List
 from app.config import settings
 from app.services.vector_service import VectorDatabase, EmbeddingService, VisionService
+from app.runtime_config import ConfigAccessor
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,16 +13,19 @@ class RAGService:
     def __init__(self):
         self.vector_db = VectorDatabase(settings.VECTOR_DATABASE_URL)
         self.embedding_service = EmbeddingService(
-            api_key=settings.DASHSCOPE_API_KEY,
-            model=settings.EMBEDDING_MODEL
+            api_key=ConfigAccessor.get_dashscope_api_key(),
+            model=ConfigAccessor.get_embedding_model()
         )
-        self.llm_api_key = settings.LLM_API_KEY
-        self.llm_api_url = settings.LLM_API_URL
-        self.llm_model = settings.LLM_MODEL_NAME
         
         force_reseed = (settings.VECTOR_DB_INIT_MODE == "dev" or 
                        settings.VECTOR_DB_AUTO_RESEED)
         self._init_default_knowledge(force_reseed=force_reseed)
+    
+    def _get_embedding_service(self) -> EmbeddingService:
+        return EmbeddingService(
+            api_key=ConfigAccessor.get_dashscope_api_key(),
+            model=ConfigAccessor.get_embedding_model()
+        )
     
     def _init_default_knowledge(self, force_reseed: bool = False):
         """初始化默认知识库
@@ -304,8 +308,15 @@ class RAGService:
     
     async def _call_llm(self, system_prompt: str, user_message: str) -> str:
         """调用LLM生成回答"""
+        api_key = ConfigAccessor.get_llm_api_key()
+        api_url = ConfigAccessor.get_llm_api_url()
+        model_name = ConfigAccessor.get_llm_model_name()
+        temperature = ConfigAccessor.get_llm_temperature()
+        max_tokens = ConfigAccessor.get_llm_max_tokens()
+        top_p = ConfigAccessor.get_llm_top_p()
+
         headers = {
-            "Authorization": f"Bearer {self.llm_api_key}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         
@@ -315,16 +326,17 @@ class RAGService:
         ]
         
         payload = {
-            "model": self.llm_model,
+            "model": model_name,
             "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 1000
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": top_p
         }
         
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
-                    f"{self.llm_api_url}/chat/completions",
+                    f"{api_url}/chat/completions",
                     headers=headers,
                     json=payload
                 )

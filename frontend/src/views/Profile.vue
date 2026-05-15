@@ -96,6 +96,22 @@
         </div>
       </div>
 
+      <div class="menu-section admin-section" v-if="isAdmin">
+        <h4 class="section-label">管理员功能</h4>
+        <div class="menu-group">
+          <div class="menu-item menu-item-admin" @click="$router.push('/admin')">
+            <div class="menu-icon icon-admin">
+              <van-icon name="manager-o" size="20" />
+            </div>
+            <div class="menu-info">
+              <span class="menu-name">管理后台</span>
+              <span class="menu-desc">用户管理、知识库、系统设置</span>
+            </div>
+            <van-icon name="arrow" size="14" color="#c4cbd5" />
+          </div>
+        </div>
+      </div>
+
       <button class="logout-btn" @click="handleLogout">
         <van-icon name="revoke" size="18" />
         <span>退出登录</span>
@@ -111,7 +127,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { showToast, showConfirmDialog } from 'vant'
@@ -120,6 +136,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const user = ref(null)
 const activeTab = ref(2)
+const isAdmin = computed(() => localStorage.getItem('is_admin') === 'true')
 
 onMounted(async () => {
   user.value = authStore.user || await authStore.fetchUser()

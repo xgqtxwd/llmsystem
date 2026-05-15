@@ -2,6 +2,7 @@ import json
 import httpx
 from typing import Optional, Dict, Any
 from app.config import settings
+from app.runtime_config import ConfigAccessor
 import logging
 
 logger = logging.getLogger(__name__)
@@ -9,25 +10,47 @@ logger = logging.getLogger(__name__)
 
 class LLMService:
     def __init__(self):
-        self.api_key = settings.LLM_API_KEY
-        self.api_url = settings.LLM_API_URL
-        self.model_name = settings.LLM_MODEL_NAME
         self.max_retries = 2
         self.timeout = httpx.Timeout(60.0, connect=15.0)
+
+    def _get_api_key(self) -> str:
+        return ConfigAccessor.get_llm_api_key()
+
+    def _get_api_url(self) -> str:
+        return ConfigAccessor.get_llm_api_url()
+
+    def _get_model_name(self) -> str:
+        return ConfigAccessor.get_llm_model_name()
+
+    def _get_temperature(self) -> float:
+        return ConfigAccessor.get_llm_temperature()
+
+    def _get_max_tokens(self) -> int:
+        return ConfigAccessor.get_llm_max_tokens()
+
+    def _get_top_p(self) -> float:
+        return ConfigAccessor.get_llm_top_p()
 
     async def chat_completion(
         self,
         messages: list,
         system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
-        max_tokens: int = 500
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None
     ) -> Dict[str, Any]:
-        logger.info(f"LLM API URL: {self.api_url}/chat/completions")
-        logger.info(f"LLM Model: {self.model_name}")
+        api_key = self._get_api_key()
+        api_url = self._get_api_url()
+        model_name = self._get_model_name()
+
+        temp = temperature if temperature is not None else self._get_temperature()
+        tokens = max_tokens if max_tokens is not None else self._get_max_tokens()
+
+        logger.info(f"LLM API URL: {api_url}/chat/completions")
+        logger.info(f"LLM Model: {model_name}")
         logger.info(f"Request messages: {messages}")
         
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
 
@@ -39,10 +62,11 @@ class LLMService:
         logger.info(f"Formatted messages: {formatted_messages}")
 
         payload = {
-            "model": self.model_name,
+            "model": model_name,
             "messages": formatted_messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens
+            "temperature": temp,
+            "max_tokens": tokens,
+            "top_p": self._get_top_p()
         }
         
         logger.info(f"Calling LLM API...")
@@ -51,7 +75,7 @@ class LLMService:
             try:
                 async with httpx.AsyncClient(timeout=self.timeout) as client:
                     response = await client.post(
-                        f"{self.api_url}/chat/completions",
+                        f"{api_url}/chat/completions",
                         headers=headers,
                         json=payload
                     )

@@ -99,13 +99,6 @@
           <span class="feature-name">营养知识</span>
           <span class="feature-desc">科普学习</span>
         </div>
-        <div class="feature-card admin-card" v-if="isAdmin" @click="$router.push('/admin')">
-          <div class="feature-icon feature-icon-admin">
-            <van-icon name="manager-o" size="26" />
-          </div>
-          <span class="feature-name">管理后台</span>
-          <span class="feature-desc">系统管理</span>
-        </div>
       </div>
 
       <div class="daily-tip animate-fadeInUp" style="animation-delay: 0.6s">

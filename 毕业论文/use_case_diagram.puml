@@ -1,0 +1,146 @@
+@startuml 系统用例图
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing true
+skinparam backgroundColor #FFFFFF
+
+' 定义参与者
+actor "普通用户" as User <<用户>> #LightBlue
+actor "管理员" as Admin <<管理员>> #LightGreen
+
+' 普通用户用例包
+package "用户功能模块" {
+  usecase "用户注册" as UC_Register
+  usecase "用户登录" as UC_Login
+  usecase "退出登录" as UC_Logout
+  
+  usecase "发起营养咨询" as UC_Chat
+  usecase "查看对话历史" as UC_ChatHistory
+  
+  usecase "获取个性化食谱推荐" as UC_RecipeRecommend
+  usecase "查询季节性食材" as UC_SeasonalIngredients
+  usecase "查询食材替代方案" as UC_IngredientSubstitute
+  
+  usecase "上传食材图片识别" as UC_FoodRecognition
+  usecase "通过URL识别食材" as UC_FoodRecognitionURL
+  
+  usecase "创建健康档案" as UC_CreateHealthProfile
+  usecase "更新健康档案" as UC_UpdateHealthProfile
+  usecase "查看健康档案" as UC_ViewHealthProfile
+  
+  usecase "设置饮食偏好" as UC_SetDietPreferences
+  usecase "查看饮食偏好" as UC_ViewDietPreferences
+  
+  usecase "创建健康目标" as UC_CreateHealthGoal
+  usecase "查看健康目标" as UC_ViewHealthGoals
+  
+  usecase "按分类查询知识" as UC_QueryKnowledgeByCategory
+  usecase "语义搜索知识" as UC_SearchKnowledge
+  usecase "查看知识详情" as UC_ViewKnowledgeDetail
+}
+
+' 管理员用例包
+package "管理员功能模块" {
+  usecase "上传知识文档" as UC_UploadDocument
+  usecase "选择文档分块方法" as UC_SelectChunkMethod
+  usecase "预览文档分块结果" as UC_PreviewChunks
+  usecase "查看解析进度" as UC_ViewTaskStatus
+  
+  usecase "查看系统统计信息" as UC_ViewStats
+  usecase "查看用户列表" as UC_ViewUsers
+  usecase "管理用户" as UC_ManageUsers
+  
+  usecase "获取系统配置选项" as UC_GetParseOptions
+  usecase "管理营养知识条目" as UC_ManageKnowledge
+}
+
+' 普通用户关联
+User --> UC_Register
+User --> UC_Login
+User --> UC_Logout
+
+User --> UC_Chat
+User --> UC_ChatHistory
+
+User --> UC_RecipeRecommend
+User --> UC_SeasonalIngredients
+User --> UC_IngredientSubstitute
+
+User --> UC_FoodRecognition
+User --> UC_FoodRecognitionURL
+
+User --> UC_CreateHealthProfile
+User --> UC_UpdateHealthProfile
+User --> UC_ViewHealthProfile
+
+User --> UC_SetDietPreferences
+User --> UC_ViewDietPreferences
+
+User --> UC_CreateHealthGoal
+User --> UC_ViewHealthGoals
+
+User --> UC_QueryKnowledgeByCategory
+User --> UC_SearchKnowledge
+User --> UC_ViewKnowledgeDetail
+
+' 管理员关联（管理员拥有普通用户所有权限）
+Admin --> UC_Register
+Admin --> UC_Login
+Admin --> UC_Logout
+Admin --> UC_Chat
+Admin --> UC_ChatHistory
+Admin --> UC_RecipeRecommend
+Admin --> UC_SeasonalIngredients
+Admin --> UC_IngredientSubstitute
+Admin --> UC_FoodRecognition
+Admin --> UC_FoodRecognitionURL
+Admin --> UC_CreateHealthProfile
+Admin --> UC_UpdateHealthProfile
+Admin --> UC_ViewHealthProfile
+Admin --> UC_SetDietPreferences
+Admin --> UC_ViewDietPreferences
+Admin --> UC_CreateHealthGoal
+Admin --> UC_ViewHealthGoals
+Admin --> UC_QueryKnowledgeByCategory
+Admin --> UC_SearchKnowledge
+Admin --> UC_ViewKnowledgeDetail
+
+' 管理员专属功能
+Admin --> UC_UploadDocument
+Admin --> UC_SelectChunkMethod
+Admin --> UC_PreviewChunks
+Admin --> UC_ViewTaskStatus
+Admin --> UC_ViewStats
+Admin --> UC_ViewUsers
+Admin --> UC_ManageUsers
+Admin --> UC_GetParseOptions
+Admin --> UC_ManageKnowledge
+
+' include 关系
+UC_Chat ..> UC_Login : <<include>>
+UC_ChatHistory ..> UC_Login : <<include>>
+UC_RecipeRecommend ..> UC_Login : <<include>>
+UC_FoodRecognition ..> UC_Login : <<include>>
+UC_FoodRecognitionURL ..> UC_Login : <<include>>
+UC_CreateHealthProfile ..> UC_Login : <<include>>
+UC_UpdateHealthProfile ..> UC_Login : <<include>>
+UC_ViewHealthProfile ..> UC_Login : <<include>>
+UC_SetDietPreferences ..> UC_Login : <<include>>
+UC_CreateHealthGoal ..> UC_Login : <<include>>
+UC_UploadDocument ..> UC_Login : <<include>>
+
+UC_Chat ..> UC_ChatHistory : <<extend>>
+UC_RecipeRecommend ..> UC_SearchKnowledge : <<extend>>
+UC_FoodRecognition ..> UC_FoodRecognitionURL : <<extend>>
+UC_UpdateHealthProfile ..> UC_CreateHealthProfile : <<extend>>
+UC_ViewHealthProfile ..> UC_CreateHealthProfile : <<extend>>
+UC_ViewDietPreferences ..> UC_SetDietPreferences : <<extend>>
+UC_ViewHealthGoals ..> UC_CreateHealthGoal : <<extend>>
+UC_ViewKnowledgeDetail ..> UC_QueryKnowledgeByCategory : <<extend>>
+UC_ViewKnowledgeDetail ..> UC_SearchKnowledge : <<extend>>
+UC_PreviewChunks ..> UC_UploadDocument : <<extend>>
+UC_SelectChunkMethod ..> UC_UploadDocument : <<extend>>
+UC_ViewTaskStatus ..> UC_UploadDocument : <<extend>>
+UC_ManageUsers ..> UC_ViewUsers : <<extend>>
+
+@enduml

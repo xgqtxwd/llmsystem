@@ -1,6 +1,10 @@
 <template>
-  <div class="admin-container">
-    <van-nav-bar title="管理员中心" left-arrow @click-left="$router.back()" />
+  <div class="admin-layout">
+    <van-nav-bar title="管理后台" fixed placeholder>
+      <template #right>
+        <van-button size="small" type="danger" @click="handleLogout">退出登录</van-button>
+      </template>
+    </van-nav-bar>
 
     <div class="admin-tabs">
       <div
@@ -131,6 +135,66 @@
       </div>
 
       <div v-else-if="activeTab === 'knowledge'" class="knowledge-content">
+        <div class="sub-tabs">
+          <span
+            v-for="kt in knowledgeSubTabs"
+            :key="kt.value"
+            class="sub-tab"
+            :class="{ active: knowledgeTab === kt.value }"
+            @click="knowledgeTab = kt.value; onKnowledgeTabChange(kt.value)"
+          >
+            {{ kt.label }}
+          </span>
+        </div>
+
+        <div v-if="knowledgeTab === 'list'">
+          <div class="knowledge-list-header">
+            <van-search
+              v-model="knowledgeSearchQuery"
+              placeholder="搜索知识库..."
+              shape="round"
+              @search="searchKnowledge"
+              @clear="knowledgeSearchQuery = ''; loadKnowledgeList()"
+            />
+            <div class="type-filters">
+              <span
+                v-for="kt in knowledgeTypes"
+                :key="kt.value"
+                class="type-filter"
+                :class="{ active: knowledgeTypeFilter === kt.value }"
+                @click="knowledgeTypeFilter = kt.value; resetAndLoadKnowledge()"
+              >{{ kt.label }}</span>
+            </div>
+          </div>
+          <van-pull-refresh v-model="knowledgeRefreshing" @refresh="loadKnowledgeList">
+            <van-list
+              v-model:loading="knowledgeLoading"
+              :finished="knowledgeFinished"
+              finished-text="没有更多条目了"
+              @load="loadKnowledgeList"
+            >
+              <div
+                v-for="item in knowledgeList"
+                :key="item.id"
+                class="knowledge-item-card animate-fadeInUp"
+              >
+                <div class="knowledge-item-top">
+                  <van-tag :type="getKnowledgeTypeTag(item.content_type)" round size="small">
+                    {{ getKnowledgeTypeLabel(item.content_type) }}
+                  </van-tag>
+                  <van-icon name="delete-o" size="16" class="knowledge-delete-icon" @click="confirmDeleteKnowledge(item.id)" />
+                </div>
+                <p class="knowledge-item-content">{{ item.content }}</p>
+                <div class="knowledge-item-footer">
+                  <span class="knowledge-item-id">ID: {{ item.id }}</span>
+                  <span v-if="item.metadata" class="knowledge-item-meta">{{ item.metadata }}</span>
+                </div>
+              </div>
+            </van-list>
+          </van-pull-refresh>
+        </div>
+
+        <div v-if="knowledgeTab === 'upload'">
         <div class="section-block">
           <h4 class="block-title">文档上传配置</h4>
           <div class="config-grid">
@@ -316,50 +380,124 @@
             </div>
           </div>
         </div>
+        </div>
 
-        <div class="knowledge-stats-single">
-          <div class="kss-icon">
-            <van-icon name="bookmark-o" size="22" />
+        <div v-if="knowledgeTab === 'stats'">
+        <div class="knowledge-stats-grid">
+          <div class="kss-card kss-total">
+            <div class="kss-icon-wrap"><van-icon name="bookmark-o" size="20" /></div>
+            <div class="kss-detail">
+              <span class="kss-num">{{ knowledgeStats.total || 0 }}</span>
+              <span class="kss-label">总条目</span>
+            </div>
           </div>
-          <div class="kss-info">
-            <span class="kss-num">{{ knowledgeStats.nutrition || 0 }}</span>
-            <span class="kss-label">知识库条目</span>
+          <div class="kss-card kss-nutrition">
+            <div class="kss-icon-wrap"><van-icon name="medal-o" size="20" /></div>
+            <div class="kss-detail">
+              <span class="kss-num">{{ knowledgeStats.nutrition || 0 }}</span>
+              <span class="kss-label">营养知识</span>
+            </div>
           </div>
+          <div class="kss-card kss-recipe">
+            <div class="kss-icon-wrap"><van-icon name="eat-o" size="20" /></div>
+            <div class="kss-detail">
+              <span class="kss-num">{{ knowledgeStats.recipe || 0 }}</span>
+              <span class="kss-label">食谱</span>
+            </div>
+          </div>
+          <div class="kss-card kss-ingredient">
+            <div class="kss-icon-wrap"><van-icon name="label-o" size="20" /></div>
+            <div class="kss-detail">
+              <span class="kss-num">{{ knowledgeStats.ingredient || 0 }}</span>
+              <span class="kss-label">食材</span>
+            </div>
+          </div>
+          <div class="kss-card kss-seasonal">
+            <div class="kss-icon-wrap"><van-icon name="calendar-o" size="20" /></div>
+            <div class="kss-detail">
+              <span class="kss-num">{{ knowledgeStats.seasonal || 0 }}</span>
+              <span class="kss-label">季节性</span>
+            </div>
+          </div>
+          <div class="kss-card kss-advice">
+            <div class="kss-icon-wrap"><van-icon name="chat-o" size="20" /></div>
+            <div class="kss-detail">
+              <span class="kss-num">{{ knowledgeStats.advice || 0 }}</span>
+              <span class="kss-label">饮食建议</span>
+            </div>
+          </div>
+        </div>
         </div>
       </div>
 
       <div v-else-if="activeTab === 'settings'" class="settings-content">
         <div class="section-block">
-          <h4 class="block-title">大模型参数</h4>
+          <h4 class="block-title">语言模型 (LLM) 设置</h4>
           <div class="setting-row">
             <label>模型名称</label>
-            <input v-model="llmSettings.model_name" readonly class="setting-input setting-input-readonly" />
+            <input v-model="llmSettings.model_name" class="setting-input" placeholder="如 doubao-seed-2-0-lite" />
+          </div>
+          <div class="setting-row">
+            <label>API 地址</label>
+            <input v-model="llmSettings.api_url" class="setting-input" placeholder="如 https://ark.cn-beijing.volces.com/api/v3" />
+          </div>
+          <div class="setting-row">
+            <label>API Key</label>
+            <input v-model="llmSettings.api_key" class="setting-input" type="password" :placeholder="llmSettings.api_key" />
           </div>
           <div class="setting-row">
             <label>Temperature</label>
-            <input v-model="llmSettings.temperature" type="number" step="0.1" min="0" max="2" class="setting-input" />
+            <input v-model.number="llmSettings.temperature" type="number" step="0.1" min="0" max="2" class="setting-input" />
           </div>
           <div class="setting-row">
             <label>最大Token数</label>
-            <input v-model="llmSettings.max_tokens" type="number" class="setting-input" />
+            <input v-model.number="llmSettings.max_tokens" type="number" class="setting-input" />
           </div>
-          <button class="save-btn" @click="updateLLMSettings">保存设置</button>
+          <div class="setting-row">
+            <label>Top P</label>
+            <input v-model.number="llmSettings.top_p" type="number" step="0.1" min="0" max="1" class="setting-input" />
+          </div>
+          <button class="save-btn" @click="updateLLMSettings">保存 LLM 设置</button>
+        </div>
+
+        <div class="section-block">
+          <h4 class="block-title">视觉模型设置</h4>
+          <div class="setting-row">
+            <label>模型名称</label>
+            <input v-model="visionSettings.model_name" class="setting-input" placeholder="如 qwen-vl-plus" />
+          </div>
+          <div class="setting-row">
+            <label>API 地址</label>
+            <input v-model="visionSettings.api_url" class="setting-input" placeholder="如 https://dashscope.aliyuncs.com/compatible-mode/v1" />
+          </div>
+          <div class="setting-row">
+            <label>API Key</label>
+            <input v-model="visionSettings.api_key" class="setting-input" type="password" :placeholder="visionSettings.api_key" />
+          </div>
+          <button class="save-btn save-btn-vision" @click="updateVisionSettings">保存视觉模型设置</button>
         </div>
 
         <div class="section-block">
           <h4 class="block-title">Embedding 设置</h4>
-          <div class="setting-row">
+          <div class="setting-row clickable" @click="showEmbeddingPicker = true">
             <label>嵌入模型</label>
-            <input v-model="embeddingSettings.embedding_model" readonly class="setting-input setting-input-readonly" />
+            <div class="setting-right">
+              <span>{{ getEmbeddingModelLabel(embeddingSettings.embedding_model) }}</span>
+              <van-icon name="arrow" size="14" color="#c4cbd5" />
+            </div>
           </div>
           <div class="setting-row clickable" @click="showChunkPicker = true">
             <label>分块方式</label>
             <div class="setting-right">
-              <span>{{ embeddingSettings.current_chunk_method }}</span>
+              <span>{{ getChunkMethodLabel(embeddingSettings.current_chunk_method) }}</span>
               <van-icon name="arrow" size="14" color="#c4cbd5" />
             </div>
           </div>
-          <button class="save-btn save-btn-secondary" @click="updateEmbeddingSettings">保存设置</button>
+          <div class="setting-row">
+            <label>API Key</label>
+            <input v-model="embeddingSettings.api_key" class="setting-input" type="password" :placeholder="embeddingSettings.api_key" />
+          </div>
+          <button class="save-btn save-btn-secondary" @click="updateEmbeddingSettings">保存 Embedding 设置</button>
         </div>
 
         <div class="section-block">
@@ -433,11 +571,11 @@
           v-for="col in embeddingColumns"
           :key="col.value"
           class="picker-opt"
-          :class="{ active: uploadForm.embeddingModel === col.value }"
-          @click="onEmbeddingConfirm(col)"
+          :class="{ active: embeddingSettings.embedding_model === col.value }"
+          @click="onEmbeddingModelConfirm(col)"
         >
           {{ col.text }}
-          <van-icon v-if="uploadForm.embeddingModel === col.value" name="success" size="16" color="#10b981" />
+          <van-icon v-if="embeddingSettings.embedding_model === col.value" name="success" size="16" color="#10b981" />
         </div>
       </div>
     </van-popup>
@@ -446,8 +584,13 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
 import { adminAPI } from '@/api'
+import { useAuthStore } from '@/stores/auth'
+
+const router = useRouter()
+const authStore = useAuthStore()
 
 const activeTab = ref('users')
 const userTab = ref('list')
@@ -554,9 +697,33 @@ const uploadForm = ref({
   embeddingModelLabel: 'DashScope Text Embedding V4'
 })
 
-const knowledgeStats = ref({ nutrition: 0, recipe: 0, ingredient: 0, seasonal: 0 })
-const llmSettings = ref({ model_name: 'doubao-seed-2-0-lite-260215', temperature: 0.7, max_tokens: 500 })
-const embeddingSettings = ref({ embedding_model: 'text-embedding-v4', current_chunk_method: '固定大小分块' })
+const knowledgeStats = ref({ nutrition: 0, recipe: 0, ingredient: 0, seasonal: 0, advice: 0, total: 0 })
+const knowledgeSubTabs = [
+  { label: '条目列表', value: 'list' },
+  { label: '上传文档', value: 'upload' },
+  { label: '统计', value: 'stats' }
+]
+const knowledgeTab = ref('list')
+
+const knowledgeList = ref([])
+const knowledgeLoading = ref(false)
+const knowledgeFinished = ref(false)
+const knowledgeRefreshing = ref(false)
+const knowledgePage = ref(1)
+const knowledgeTypeFilter = ref('')
+const knowledgeSearchQuery = ref('')
+
+const knowledgeTypes = [
+  { label: '全部', value: '' },
+  { label: '营养知识', value: 'nutrition' },
+  { label: '食谱', value: 'recipe' },
+  { label: '食材', value: 'ingredient' },
+  { label: '饮食建议', value: 'advice' },
+  { label: '季节性', value: 'seasonal' }
+]
+const llmSettings = ref({ model_name: '', api_url: '', temperature: 0.7, max_tokens: 500, top_p: 0.9, api_key: '' })
+const embeddingSettings = ref({ embedding_model: '', embedding_dimension: 1024, current_chunk_method: 'fixed', api_key: '' })
+const visionSettings = ref({ model_name: '', api_url: '', api_key: '' })
 
 function switchMainTab(val) {
   activeTab.value = val
@@ -566,6 +733,12 @@ function switchMainTab(val) {
   } else if (val === 'knowledge') {
     loadKnowledgeStats()
     restoreActiveTask()
+    if (knowledgeTab.value === 'list') {
+      knowledgePage.value = 1
+      knowledgeFinished.value = false
+      knowledgeList.value = []
+      loadKnowledgeList()
+    }
   } else if (val === 'settings') { loadSettings(); loadLogs() }
 }
 
@@ -605,7 +778,92 @@ async function loadBehaviorData() {
 }
 
 async function loadKnowledgeStats() {
-  try { knowledgeStats.value = await adminAPI.getKnowledgeStats() } catch (e) {}
+  try {
+    const res = await adminAPI.getKnowledgeStats()
+    if (res.success) {
+      knowledgeStats.value = res.stats || {}
+    }
+  } catch (e) {}
+}
+
+async function loadKnowledgeList() {
+  try {
+    const res = await adminAPI.getKnowledgeList(knowledgeTypeFilter.value || null, knowledgePage.value, 20)
+    if (res.success) {
+      if (knowledgePage.value === 1) {
+        knowledgeList.value = res.data || []
+      } else {
+        knowledgeList.value = [...knowledgeList.value, ...(res.data || [])]
+      }
+      knowledgePage.value++
+      if ((res.data || []).length < 20) {
+        knowledgeFinished.value = true
+      }
+    }
+  } catch (error) {
+    showToast('加载失败')
+  } finally {
+    knowledgeLoading.value = false
+    knowledgeRefreshing.value = false
+  }
+}
+
+async function searchKnowledge() {
+  try {
+    const res = await adminAPI.searchKnowledge(knowledgeSearchQuery.value, knowledgeTypeFilter.value || null, 20)
+    if (res.success) {
+      knowledgeList.value = res.results || []
+      knowledgeFinished.value = true
+    }
+  } catch (error) {
+    showToast('搜索失败')
+  } finally {
+    knowledgeLoading.value = false
+  }
+}
+
+async function confirmDeleteKnowledge(id) {
+  try {
+    await showConfirmDialog({ title: '确认删除', message: '确定要删除该知识条目吗？' })
+    await adminAPI.deleteKnowledge(id)
+    showToast('删除成功')
+    knowledgePage.value = 1
+    knowledgeFinished.value = false
+    loadKnowledgeList()
+    loadKnowledgeStats()
+  } catch (e) {
+    if (e !== 'cancel') showToast('删除失败')
+  }
+}
+
+function onKnowledgeTabChange(tab) {
+  if (tab === 'list') {
+    resetAndLoadKnowledge()
+  } else if (tab === 'stats') {
+    loadKnowledgeStats()
+  }
+}
+
+function resetAndLoadKnowledge() {
+  knowledgePage.value = 1
+  knowledgeFinished.value = false
+  knowledgeList.value = []
+  loadKnowledgeList()
+}
+
+function getKnowledgeTypeTag(type) {
+  const map = { nutrition: 'success', recipe: 'warning', ingredient: 'primary', advice: 'default', seasonal: 'danger' }
+  return map[type] || 'default'
+}
+
+function getKnowledgeTypeLabel(type) {
+  const map = { nutrition: '营养知识', recipe: '食谱', ingredient: '食材', advice: '饮食建议', seasonal: '季节性' }
+  return map[type] || type
+}
+
+function onEmbeddingModelConfirm(col) {
+  embeddingSettings.value.embedding_model = col.value
+  showEmbeddingPicker.value = false
 }
 
 async function loadLogs() {
@@ -621,6 +879,13 @@ async function loadSettings() {
   try {
     llmSettings.value = await adminAPI.getLLMSettings()
     embeddingSettings.value = await adminAPI.getEmbeddingSettings()
+    visionSettings.value = await adminAPI.getVisionSettings()
+    const chunkMethod = embeddingSettings.value.current_chunk_method || 'fixed'
+    uploadForm.value.chunkMethod = chunkMethod
+    uploadForm.value.chunkMethodLabel = getChunkMethodLabel(chunkMethod)
+    const embedModel = embeddingSettings.value.embedding_model || 'text-embedding-v4'
+    uploadForm.value.embeddingModel = embedModel
+    uploadForm.value.embeddingModelLabel = getEmbeddingModelLabel(embedModel)
   } catch (e) {}
 }
 
@@ -899,27 +1164,55 @@ function afterRead(file) { parseResult.value = null }
 function onChunkConfirm(col) {
   uploadForm.value.chunkMethod = col.value
   uploadForm.value.chunkMethodLabel = col.text
+  embeddingSettings.value.current_chunk_method = col.value
   showChunkPicker.value = false
-}
-
-function onEmbeddingConfirm(col) {
-  uploadForm.value.embeddingModel = col.value
-  uploadForm.value.embeddingModelLabel = col.text
-  showEmbeddingPicker.value = false
 }
 
 async function updateLLMSettings() {
   try {
-    await adminAPI.updateLLMSettings({ temperature: llmSettings.value.temperature, max_tokens: llmSettings.value.max_tokens })
-    showToast('设置已保存')
+    await adminAPI.updateLLMSettings({
+      model_name: llmSettings.value.model_name,
+      api_url: llmSettings.value.api_url,
+      temperature: llmSettings.value.temperature,
+      max_tokens: llmSettings.value.max_tokens,
+      top_p: llmSettings.value.top_p,
+      api_key: llmSettings.value.api_key
+    })
+    showToast('LLM设置已保存')
+    loadSettings()
   } catch (e) { showToast('保存失败') }
 }
 
 async function updateEmbeddingSettings() {
   try {
-    await adminAPI.updateEmbeddingSettings({ chunk_method: uploadForm.value.chunkMethod })
-    showToast('设置已保存')
+    await adminAPI.updateEmbeddingSettings({
+      embedding_model: embeddingSettings.value.embedding_model,
+      current_chunk_method: embeddingSettings.value.current_chunk_method,
+      api_key: embeddingSettings.value.api_key
+    })
+    showToast('Embedding设置已保存')
+    loadSettings()
   } catch (e) { showToast('保存失败') }
+}
+
+async function updateVisionSettings() {
+  try {
+    await adminAPI.updateVisionSettings({
+      model_name: visionSettings.value.model_name,
+      api_url: visionSettings.value.api_url,
+      api_key: visionSettings.value.api_key
+    })
+    showToast('视觉模型设置已保存')
+    loadSettings()
+  } catch (e) { showToast('保存失败') }
+}
+
+function getEmbeddingModelLabel(model) {
+  const map = {
+    'text-embedding-v4': 'DashScope Text Embedding V4',
+    'text-embedding-3-large': 'OpenAI Embedding 3 Large'
+  }
+  return map[model] || model || '请选择'
 }
 
 function getFeedbackType(status) {
@@ -927,8 +1220,23 @@ function getFeedbackType(status) {
   return map[status] || 'default'
 }
 
+async function handleLogout() {
+  try {
+    await showConfirmDialog({
+      title: '退出登录',
+      message: '确定要退出当前账号吗？',
+      confirmButtonText: '退出',
+      cancelButtonText: '取消',
+      confirmButtonColor: '#ef4444'
+    })
+    authStore.logout()
+    showToast('已退出登录')
+    router.push('/login')
+  } catch (e) {}
+}
+
 onMounted(() => {
-  loadUsers()
+  loadSettings()
   const saved = getTaskFromStorage()
   if (saved && saved.status === 'processing') {
     activeTab.value = 'knowledge'
@@ -942,7 +1250,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.admin-container {
+.admin-layout {
   min-height: 100vh;
   background-color: #f0fdf4;
   padding-bottom: 20px;
@@ -1613,9 +1921,87 @@ onUnmounted(() => {
   color: #991b1b;
 }
 
+.knowledge-list-header {
+  margin-bottom: 12px;
+}
+
+.type-filters {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.type-filters::-webkit-scrollbar { display: none; }
+
+.type-filter {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #f1f5f9;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.type-filter.active { background: #10b981; color: white; }
+
+.knowledge-item-card {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.knowledge-item-card:active { transform: scale(0.98); }
+
+.knowledge-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.knowledge-delete-icon {
+  color: #ef4444;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: var(--transition);
+}
+
+.knowledge-delete-icon:active { background: #fee2e2; }
+
+.knowledge-item-content {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.knowledge-item-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.knowledge-item-id { font-weight: 500; }
+.knowledge-item-meta { max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .retry-btn {
-  margin-top: 8px;
-  padding: 8px 24px;
   border: none;
   border-radius: 20px;
   background: linear-gradient(135deg, #ef4444, #dc2626);
@@ -1668,42 +2054,57 @@ onUnmounted(() => {
   transition: width 0.3s;
 }
 
-.knowledge-stats-single {
-  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.knowledge-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
   margin-top: 16px;
-  border: 1px solid #bbf7d0;
 }
 
-.kss-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #10b981, #059669);
+.kss-card {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.kss-card:active { transform: scale(0.98); }
+
+.kss-card.kss-total .kss-icon-wrap { background: linear-gradient(135deg, #10b981, #059669); }
+.kss-card.kss-nutrition .kss-icon-wrap { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+.kss-card.kss-recipe .kss-icon-wrap { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.kss-card.kss-ingredient .kss-icon-wrap { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.kss-card.kss-seasonal .kss-icon-wrap { background: linear-gradient(135deg, #ec4899, #db2777); }
+.kss-card.kss-advice .kss-icon-wrap { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+
+.kss-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
 }
 
-.kss-info { display: flex; flex-direction: column; }
+.kss-detail { display: flex; flex-direction: column; }
 
 .kss-num {
-  font-size: 26px;
-  font-weight: 800;
-  color: #065f46;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
   line-height: 1.2;
 }
 
 .kss-label {
-  font-size: 13px;
-  color: #047857;
+  font-size: 12px;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -1757,6 +2158,7 @@ onUnmounted(() => {
 }
 
 .save-btn-secondary { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+.save-btn-vision { background: linear-gradient(135deg, #f59e0b, #d97706); }
 
 .log-filters { display: flex; gap: 8px; margin-bottom: 14px; }
 

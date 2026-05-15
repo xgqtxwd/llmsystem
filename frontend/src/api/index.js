@@ -130,11 +130,16 @@ export const adminAPI = {
   updateLLMSettings: (settings) => api.put('/admin/settings/llm', settings),
   getEmbeddingSettings: () => api.get('/admin/settings/embedding'),
   updateEmbeddingSettings: (settings) => api.put('/admin/settings/embedding', settings),
+  getVisionSettings: () => api.get('/admin/settings/vision'),
+  updateVisionSettings: (settings) => api.put('/admin/settings/vision', settings),
 
   getLogs: (page = 1, pageSize = 50, level = null) => api.get(`/admin/logs?page=${page}&page_size=${pageSize}${level ? '&level=' + level : ''}`),
 
   getParseOptions: () => api.get('/admin/document/parse-options'),
   getKnowledgeStats: () => api.get('/knowledge-base/stats'),
+  getKnowledgeList: (contentType, page, pageSize) => api.get(`/knowledge-base/?content_type=${contentType || ''}&page=${page}&page_size=${pageSize}`),
+  deleteKnowledge: (id) => api.delete(`/knowledge-base/${id}`),
+  searchKnowledge: (query, contentType, topK) => api.post('/knowledge-base/search', { query, content_type: contentType, top_k: topK || 20 }),
   uploadDocument: (formData) => api.post('/admin/document/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 300000

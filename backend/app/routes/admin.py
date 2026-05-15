@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 import base64
 import json
@@ -10,7 +10,8 @@ from app.database import get_db
 from app.models import User
 from app.schemas import UserResponse
 from app.utils import get_current_user
-from app.config import settings
+from app.config import settings as env_settings
+from app.runtime_config import runtime_config, ConfigAccessor
 from app.services.vector_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
@@ -199,26 +200,56 @@ async def process_feedback(
 @router.get("/settings/llm", summary="获取LLM设置")
 async def get_llm_settings(current_user: User = Depends(require_admin)):
     return {
-        "model_name": settings.LLM_MODEL_NAME,
-        "temperature": 0.7,
-        "max_tokens": 500,
-        "embedding_model": settings.EMBEDDING_MODEL
+        "model_name": ConfigAccessor.get_llm_model_name(),
+        "api_url": ConfigAccessor.get_llm_api_url(),
+        "temperature": ConfigAccessor.get_llm_temperature(),
+        "max_tokens": ConfigAccessor.get_llm_max_tokens(),
+        "top_p": ConfigAccessor.get_llm_top_p(),
+        "api_key": _mask_api_key(ConfigAccessor.get_llm_api_key())
     }
 
 
 @router.put("/settings/llm", summary="更新LLM设置")
 async def update_llm_settings(
-    model_name: Optional[str] = None,
-    temperature: Optional[float] = None,
-    max_tokens: Optional[int] = None,
+    body: Dict[str, Any],
     current_user: User = Depends(require_admin)
 ):
+    updates = {}
+
+    if "model_name" in body and body["model_name"]:
+        updates["llm_model_name"] = body["model_name"]
+
+    if "api_url" in body and body["api_url"]:
+        updates["llm_api_url"] = body["api_url"]
+
+    if "temperature" in body and body["temperature"] is not None:
+        val = float(body["temperature"])
+        if 0 <= val <= 2:
+            updates["llm_temperature"] = val
+
+    if "max_tokens" in body and body["max_tokens"] is not None:
+        updates["llm_max_tokens"] = int(body["max_tokens"])
+
+    if "top_p" in body and body["top_p"] is not None:
+        val = float(body["top_p"])
+        if 0 <= val <= 1:
+            updates["llm_top_p"] = val
+
+    if "api_key" in body and body["api_key"] and not body["api_key"].startswith("****"):
+        updates["llm_api_key"] = body["api_key"]
+
+    if updates:
+        runtime_config.update(updates)
+
     return {
         "message": "LLM设置已更新",
         "settings": {
-            "model_name": model_name or settings.LLM_MODEL_NAME,
-            "temperature": temperature or 0.7,
-            "max_tokens": max_tokens or 500
+            "model_name": ConfigAccessor.get_llm_model_name(),
+            "api_url": ConfigAccessor.get_llm_api_url(),
+            "temperature": ConfigAccessor.get_llm_temperature(),
+            "max_tokens": ConfigAccessor.get_llm_max_tokens(),
+            "top_p": ConfigAccessor.get_llm_top_p(),
+            "api_key": _mask_api_key(ConfigAccessor.get_llm_api_key())
         }
     }
 
@@ -226,24 +257,77 @@ async def update_llm_settings(
 @router.get("/settings/embedding", summary="获取Embedding设置")
 async def get_embedding_settings(current_user: User = Depends(require_admin)):
     return {
-        "embedding_model": settings.EMBEDDING_MODEL,
-        "embedding_dimension": settings.EMBEDDING_DIMENSION,
-        "chunk_methods": ["固定大小分块", "句子分块", "段落分块", "递归分块"],
-        "current_chunk_method": "固定大小分块"
+        "embedding_model": ConfigAccessor.get_embedding_model(),
+        "embedding_dimension": ConfigAccessor.get_embedding_dimension(),
+        "current_chunk_method": runtime_config.get("current_chunk_method") or "fixed",
+        "api_key": _mask_api_key(ConfigAccessor.get_dashscope_api_key())
     }
 
 
 @router.put("/settings/embedding", summary="更新Embedding设置")
 async def update_embedding_settings(
-    embedding_model: Optional[str] = None,
-    chunk_method: Optional[str] = None,
+    body: Dict[str, Any],
     current_user: User = Depends(require_admin)
 ):
+    updates = {}
+
+    if "embedding_model" in body and body["embedding_model"]:
+        updates["embedding_model"] = body["embedding_model"]
+
+    if "current_chunk_method" in body and body["current_chunk_method"]:
+        updates["current_chunk_method"] = body["current_chunk_method"]
+
+    if "api_key" in body and body["api_key"] and not body["api_key"].startswith("****"):
+        updates["dashscope_api_key"] = body["api_key"]
+
+    if updates:
+        runtime_config.update(updates)
+
     return {
         "message": "Embedding设置已更新",
         "settings": {
-            "embedding_model": embedding_model or settings.EMBEDDING_MODEL,
-            "chunk_method": chunk_method or "固定大小分块"
+            "embedding_model": ConfigAccessor.get_embedding_model(),
+            "embedding_dimension": ConfigAccessor.get_embedding_dimension(),
+            "current_chunk_method": ConfigAccessor.get_current_chunk_method() if hasattr(ConfigAccessor, 'get_current_chunk_method') else (runtime_config.get("current_chunk_method") or "fixed"),
+            "api_key": _mask_api_key(ConfigAccessor.get_dashscope_api_key())
+        }
+    }
+
+
+@router.get("/settings/vision", summary="获取视觉模型设置")
+async def get_vision_settings(current_user: User = Depends(require_admin)):
+    return {
+        "model_name": ConfigAccessor.get_vision_llm_model(),
+        "api_url": ConfigAccessor.get_vision_llm_url(),
+        "api_key": _mask_api_key(ConfigAccessor.get_vision_llm_api_key())
+    }
+
+
+@router.put("/settings/vision", summary="更新视觉模型设置")
+async def update_vision_settings(
+    body: Dict[str, Any],
+    current_user: User = Depends(require_admin)
+):
+    updates = {}
+
+    if "model_name" in body and body["model_name"]:
+        updates["vision_llm_model"] = body["model_name"]
+
+    if "api_url" in body and body["api_url"]:
+        updates["vision_llm_url"] = body["api_url"]
+
+    if "api_key" in body and body["api_key"] and not body["api_key"].startswith("****"):
+        updates["vision_llm_api_key"] = body["api_key"]
+
+    if updates:
+        runtime_config.update(updates)
+
+    return {
+        "message": "视觉模型设置已更新",
+        "settings": {
+            "model_name": ConfigAccessor.get_vision_llm_model(),
+            "api_url": ConfigAccessor.get_vision_llm_url(),
+            "api_key": _mask_api_key(ConfigAccessor.get_vision_llm_api_key())
         }
     }
 
@@ -274,6 +358,13 @@ async def get_system_logs(
     }
 
 
+def _mask_api_key(key: str) -> str:
+    """API Key脱敏显示"""
+    if not key or len(key) < 8:
+        return "****"
+    return key[:4] + "****" + key[-4:]
+
+
 MAX_FILE_SIZE = 30 * 1024 * 1024
 
 EMBEDDING_MODELS = {
@@ -290,10 +381,32 @@ EMBEDDING_MODELS = {
 }
 
 CHUNK_METHODS_CONFIG = {
-    "fixed": {"name": "固定大小分块", "chunk_size": 500, "overlap": 50},
-    "sentence": {"name": "句子分块", "delimiter": "。！？"},
-    "paragraph": {"name": "段落分块", "delimiter": "\n\n"},
-    "recursive": {"name": "递归分块", "separators": ["\n\n", "\n", "。", "！", "？"]}
+    "fixed": {
+        "name": "固定大小分块",
+        "description": "按固定字符数分割文本，适合均匀分布的知识内容",
+        "chunk_size": 500,
+        "overlap": 50,
+        "try_sentence_boundary": True
+    },
+    "sentence": {
+        "name": "句子分块",
+        "description": "按句子分隔符分割，保持语义完整性",
+        "delimiters": ["。", "！", "？", "\n"],
+        "max_chunk_size": 500
+    },
+    "paragraph": {
+        "name": "段落分块",
+        "description": "按段落分割，保留段落结构",
+        "delimiter": "\n\n",
+        "max_chunk_size": 800
+    },
+    "recursive": {
+        "name": "递归分块",
+        "description": "递归使用多种分隔符，优先保持大块结构",
+        "separators": ["\n\n\n", "\n\n", "\n", "。", "！", "？", "；", "，"],
+        "max_chunk_size": 500,
+        "min_chunk_size": 100
+    }
 }
 
 
@@ -406,8 +519,9 @@ async def upload_document(
 def process_document_task(task_id: str, chunks: List[str], embedding_model: str, content_type: str, category: str, filename: str):
     from app.services.rag_service import rag_service as rag_svc
 
+    api_key = ConfigAccessor.get_dashscope_api_key()
     embedding_service = EmbeddingService(
-        api_key=settings.DASHSCOPE_API_KEY,
+        api_key=api_key,
         model=embedding_model
     )
 
@@ -608,113 +722,245 @@ def chunk_text(text: str, method: str) -> List[str]:
     config = CHUNK_METHODS_CONFIG.get(method, CHUNK_METHODS_CONFIG["fixed"])
 
     if method == "fixed":
-        return chunk_fixed(text, config.get("chunk_size", 500), config.get("overlap", 50))
+        return chunk_fixed(
+            text,
+            chunk_size=config.get("chunk_size", 500),
+            overlap=config.get("overlap", 50),
+            try_sentence_boundary=config.get("try_sentence_boundary", True)
+        )
     elif method == "sentence":
-        return chunk_by_delimiter(text, config.get("delimiter", "。！？"))
+        return chunk_by_sentence(
+            text,
+            delimiters=config.get("delimiters", ["。", "！", "？", "\n"]),
+            max_chunk_size=config.get("max_chunk_size", 500)
+        )
     elif method == "paragraph":
-        return chunk_by_delimiter(text, config.get("delimiter", "\n\n"))
+        return chunk_by_paragraph(
+            text,
+            delimiter=config.get("delimiter", "\n\n"),
+            max_chunk_size=config.get("max_chunk_size", 800)
+        )
     elif method == "recursive":
-        return chunk_recursive(text, config.get("separators", ["\n\n", "\n", "。", "！", "？"]))
+        return chunk_recursive(
+            text,
+            separators=config.get("separators", ["\n\n\n", "\n\n", "\n", "。", "！", "？", "；", "，"]),
+            max_chunk_size=config.get("max_chunk_size", 500),
+            min_chunk_size=config.get("min_chunk_size", 100)
+        )
     else:
         return chunk_fixed(text, 500, 50)
 
 
-def chunk_fixed(text: str, chunk_size: int, overlap: int) -> List[str]:
+def chunk_fixed(text: str, chunk_size: int, overlap: int, try_sentence_boundary: bool = True) -> List[str]:
+    """
+    固定大小分块，可选在句子边界截断以保持语义完整性
+    
+    Args:
+        text: 待分块文本
+        chunk_size: 每个块的字符数
+        overlap: 块之间的重叠字符数
+        try_sentence_boundary: 是否尝试在句子边界截断
+    
+    Returns:
+        分块后的文本列表
+    """
     if not text.strip():
         return []
+    
     chunks = []
     start = 0
     text_length = len(text)
+    
     while start < text_length:
-        end = start + chunk_size
-        if end >= text_length:
-            chunk = text[start:]
-        else:
-            chunk = text[start:end]
-        cleaned = chunk.strip()
-        if cleaned:
-            chunks.append(cleaned)
+        end = min(start + chunk_size, text_length)
+        
+        if try_sentence_boundary and end < text_length:
+            search_window = min(50, text_length - end)
+            boundary_pos = -1
+            for char in "。！？\n":
+                pos = text[end: end + search_window].rfind(char)
+                if pos > boundary_pos:
+                    boundary_pos = pos
+            if boundary_pos > 0:
+                end = end + boundary_pos + 1
+        
+        chunk = text[start:end].strip()
+        if chunk:
+            chunks.append(chunk)
+        
         if end >= text_length:
             break
+        
         start = end - overlap
+        if start < end:
+            start = max(start, start)
+        else:
+            start = end
+    
     return chunks
 
 
-def chunk_by_delimiter(text: str, delimiter: str) -> List[str]:
+def chunk_by_sentence(text: str, delimiters: List[str], max_chunk_size: int = 500) -> List[str]:
+    """
+    句子分块：按句子分隔符分割，多个句子合并为一个块
+    
+    Args:
+        text: 待分块文本
+        delimiters: 句子分隔符列表
+        max_chunk_size: 每个块的最大字符数
+    
+    Returns:
+        分块后的文本列表
+    """
     if not text.strip():
         return []
-    parts = text.split(delimiter)
+    
+    import re
+    pattern = "(" + "|".join(re.escape(d) for d in delimiters) + ")"
+    parts = re.split(pattern, text)
+    
+    sentences = []
+    i = 0
+    while i < len(parts):
+        part = parts[i].strip()
+        if part:
+            if i + 1 < len(parts):
+                sentence = part + parts[i + 1]
+                sentences.append(sentence)
+                i += 2
+            else:
+                sentences.append(part)
+                i += 1
+        else:
+            i += 1
+    
     chunks = []
     current = ""
-    current_length = 0
-    max_chunk_size = 500
-
-    for part in parts:
-        part = part.strip()
-        if not part:
-            continue
-        if len(current) + len(part) + len(delimiter) <= max_chunk_size:
-            current += part + delimiter
-            current_length += len(part)
-        else:
-            if current:
+    
+    for sentence in sentences:
+        if len(sentence) > max_chunk_size:
+            if current.strip():
                 chunks.append(current.strip())
-            if len(part) <= max_chunk_size:
-                current = part + delimiter
-            else:
-                sub_chunks = chunk_fixed(part, max_chunk_size, 50)
-                chunks.extend(sub_chunks[:-1] if len(sub_chunks) > 1 else [])
-                current = sub_chunks[-1] + delimiter if sub_chunks else ""
-
+                current = ""
+            sub_chunks = chunk_fixed(sentence, max_chunk_size, 50, try_sentence_boundary=False)
+            chunks.extend(sub_chunks)
+            continue
+        
+        if len(current) + len(sentence) <= max_chunk_size:
+            current += sentence
+        else:
+            if current.strip():
+                chunks.append(current.strip())
+            current = sentence
+    
     if current.strip():
         chunks.append(current.strip())
-
+    
     return [c for c in chunks if c.strip()]
 
 
-def chunk_recursive(text: str, separators: List[str]) -> List[str]:
+def chunk_by_paragraph(text: str, delimiter: str = "\n\n", max_chunk_size: int = 800) -> List[str]:
+    """
+    段落分块：按段落分割，多个段落合并为一个块
+    
+    Args:
+        text: 待分块文本
+        delimiter: 段落分隔符
+        max_chunk_size: 每个块的最大字符数
+    
+    Returns:
+        分块后的文本列表
+    """
     if not text.strip():
         return []
+    
+    paragraphs = text.split(delimiter)
+    chunks = []
+    current = ""
+    
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
+        
+        if len(para) > max_chunk_size:
+            if current.strip():
+                chunks.append(current.strip())
+                current = ""
+            sub_chunks = chunk_fixed(para, max_chunk_size, 50, try_sentence_boundary=True)
+            chunks.extend(sub_chunks)
+            continue
+        
+        if len(current) + len(para) + len(delimiter) <= max_chunk_size:
+            if current:
+                current += delimiter + para
+            else:
+                current = para
+        else:
+            if current.strip():
+                chunks.append(current.strip())
+            current = para
+    
+    if current.strip():
+        chunks.append(current.strip())
+    
+    return [c for c in chunks if c.strip()]
 
-    def split_text(text: str, sep: str) -> tuple:
-        parts = text.split(sep)
-        return parts
 
-    def recursive_chunk(text: str, index: int) -> List[str]:
-        if index >= len(separators):
-            if len(text) > 500:
-                return chunk_fixed(text, 500, 50)
-            elif text.strip():
-                return [text.strip()]
+def chunk_recursive(text: str, separators: List[str], max_chunk_size: int = 500, min_chunk_size: int = 100) -> List[str]:
+    """
+    递归分块：使用多种分隔符，从粗到细递归分割
+    
+    Args:
+        text: 待分块文本
+        separators: 分隔符列表，按优先级从高到低排列
+        max_chunk_size: 每个块的最大字符数
+        min_chunk_size: 每个块的最小字符数
+    
+    Returns:
+        分块后的文本列表
+    """
+    if not text.strip():
+        return []
+    
+    def recursive_split(text: str, sep_index: int) -> List[str]:
+        if sep_index >= len(separators):
+            if text.strip():
+                return chunk_fixed(text.strip(), max_chunk_size, 50, try_sentence_boundary=False)
             return []
-
-        separator = separators[index]
-        parts = split_text(text, separator)
-
+        
+        separator = separators[sep_index]
+        parts = text.split(separator)
+        
         chunks = []
         current = ""
-        max_size = 500
-
+        
         for part in parts:
             part = part.strip()
             if not part:
                 continue
-
-            if len(current) + len(separator) + len(part) <= max_size:
-                current += part + separator
+            
+            separator_with_space = separator if separator in ["\n", "\n\n", "\n\n\n"] else separator
+            
+            if len(current) + len(separator_with_space) + len(part) <= max_chunk_size:
+                if current:
+                    current += separator_with_space + part
+                else:
+                    current = part
             else:
                 if current.strip():
-                    chunks.append(current.strip())
-                if len(part) <= max_size:
-                    current = part + separator
+                    if len(current.strip()) < min_chunk_size and len(part) <= max_chunk_size:
+                        current += separator_with_space + part
+                    else:
+                        chunks.append(current.strip())
+                        current = part
                 else:
-                    sub_chunks = recursive_chunk(part, index + 1)
-                    chunks.extend(sub_chunks[:-1] if len(sub_chunks) > 1 else sub_chunks)
-                    current = ""
-
+                    sub_chunks = recursive_split(part, sep_index + 1)
+                    chunks.extend(sub_chunks)
+        
         if current.strip():
             chunks.append(current.strip())
-
+        
         return chunks
-
-    return recursive_chunk(text, 0)
+    
+    return recursive_split(text, 0)
