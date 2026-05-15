@@ -15,6 +15,7 @@
 - [文档解析与向量入库](#文档解析与向量入库)
 - [API 接口列表](#api-接口列表)
 - [前端页面模块](#前端页面模块)
+- [小程序端](#小程序端)
 - [快速开始](#快速开始)
 - [配置说明](#配置说明)
 
@@ -29,6 +30,7 @@
 | 层级 | 技术选型 |
 |------|----------|
 | **前端** | Vue 3 + Composition API + Vant 4 (移动端 UI) + Pinia + Vite 5 |
+| **小程序端** | uni-app + Vue 3 (支持微信小程序/支付宝/百度/头条) |
 | **后端** | Python 3.10+ / FastAPI + SQLAlchemy ORM + Pydantic |
 | **关系数据库** | MySQL 8.0 (用户数据/健康档案/食谱/知识) |
 | **向量数据库** | PostgreSQL + pgvector (RAG 知识检索) |
@@ -160,7 +162,7 @@ llmsystem/
 │           ├── rag_service.py         # RAG 检索增强生成 (检索+生成食谱)
 │           └── vector_service.py      # 向量数据库操作 (插入/搜索/删除/分页)
 │
-├── frontend/                          # 前端应用
+├── frontend/                          # 前端应用 (Web)
 │   ├── package.json                   # Node 依赖 (Vue 3 / Vant 4 / Pinia)
 │   ├── vite.config.js                 # Vite 构建配置 + API 代理
 │   ├── index.html
@@ -185,6 +187,26 @@ llmsystem/
 │           ├── KnowledgeList.vue      # 知识库列表
 │           ├── KnowledgeDetail.vue    # 知识详情
 │           └── Admin.vue              # 管理后台 (用户/知识库/设置)
+│
+├── miniprogram/                       # 小程序端 (uni-app)
+│   ├── package.json                   # Node 依赖
+│   ├── pages.json                     # 页面路由 + TabBar 配置
+│   ├── manifest.json                  # 应用配置 (微信小程序/支付宝等)
+│   ├── App.vue                        # 应用入口组件
+│   ├── main.js                        # Vue 应用初始化
+│   ├── utils/
+│   │   └── api.js                     # uni.request 封装 + 所有 API 调用
+│   ├── pages/
+│   │   ├── login/                     # 登录注册页
+│   │   ├── index/                     # 首页
+│   │   ├── chat/                      # AI 营养咨询
+│   │   ├── recipes/                   # 食谱推荐 + 食材识别
+│   │   ├── knowledge/                 # 营养知识浏览
+│   │   ├── profile/                   # 个人中心
+│   │   ├── health-profile/            # 健康档案管理
+│   │   ├── diet-preferences/          # 饮食偏好设置
+│   │   └── health-goals/              # 健康目标追踪
+│   └── static/                        # 静态资源 (图标等)
 │
 └── start.ps1                          # Windows 一键启动脚本 (预留)
 ```
@@ -430,6 +452,164 @@ async def upload_document(
 - `typingBounce` — 聊天打字三点跳动
 - `shimmer` — 进度条流光效果
 - `task-pulse` — 任务指示点呼吸动画
+
+---
+
+## 小程序端
+
+小程序端使用 **uni-app** 框架开发，一套代码可同时发布到微信小程序、支付宝小程序、百度小程序、头条小程序等多个平台。
+
+### 小程序功能模块
+
+| 页面 | 说明 |
+|------|------|
+| **首页** | 功能入口 + 数据概览（BMI/体重/身高）+ 每日小贴士 |
+| **营养咨询** | AI 对话 + 快捷问题标签 + 打字动画 |
+| **食谱推荐** | AI 推荐 + 食谱列表 + 拍照/选图识别食材 |
+| **营养知识** | 知识浏览 + 搜索 + 分类筛选 |
+| **个人中心** | 用户信息 + 健康管理入口 + 退出登录 |
+| **健康档案** | BMI/身高/体重/活动水平/健康状况管理 |
+| **饮食偏好** | 口味/饮食类型/过敏食物/禁忌食物设置 |
+| **健康目标** | 减重/增肌/控糖目标设定与进度追踪 |
+
+### 小程序启动步骤
+
+#### 方式一：使用 HBuilderX（推荐）
+
+```bash
+# 1. 下载并安装 HBuilderX
+# 官网: https://www.dcloud.io/hbuilderx.html
+
+# 2. 打开 HBuilderX，导入 miniprogram 目录作为项目
+
+# 3. 修改 API 地址
+# 编辑 miniprogram/utils/api.js 中的 BASE_URL
+# 将其改为你的后端地址，例如：
+# const BASE_URL = 'http://localhost:8000/api/v1'
+
+# 4. 运行到浏览器（H5）
+# 工具栏 → 运行 → 运行到浏览器
+
+# 5. 运行到微信小程序
+# 工具栏 → 运行 → 运行到小程序模拟器 → 微信开发者工具
+# 首次运行需配置微信开发者工具路径（工具 → 设置 → 运行配置）
+```
+
+#### 方式二：使用 CLI 命令行
+
+```bash
+# 1. 安装 uni-app CLI
+npm install -g @dcloudio/uni-cli
+
+# 2. 进入小程序目录
+cd miniprogram
+
+# 3. 安装依赖
+npm install
+
+# 4. 修改 API 地址
+# 编辑 utils/api.js 中的 BASE_URL 为后端地址
+
+# 5. 编译为 H5（浏览器预览）
+npx uni build --platform h5
+# 或使用开发模式（支持热更新）
+npx uni --platform h5
+
+# 6. 编译为微信小程序
+npx uni build --platform mp-weixin
+# 或使用开发模式
+npx uni --platform mp-weixin
+
+# 7. 用微信开发者工具打开编译输出目录
+# H5 输出: /dist/build/h5/
+# 微信小程序输出: /dist/build/mp-weixin/
+```
+
+#### 方式三：使用 Vue CLI 创建 uni-app 项目
+
+```bash
+# 1. 创建 uni-app 项目（如果从零开始）
+npx degit dcloudio/uni-preset-vue#vite miniprogram
+
+# 2. 将本项目的 miniprogram 目录下的 pages/、utils/、App.vue、pages.json、manifest.json 等文件覆盖到新项目中
+
+# 3. 安装依赖并运行
+cd miniprogram
+npm install
+npm run dev:mp-weixin    # 微信小程序开发模式
+npm run dev:h5           # H5 开发模式
+```
+
+### 小程序配置说明
+
+#### API 地址配置
+
+在 `miniprogram/utils/api.js` 中修改后端地址：
+
+```javascript
+const BASE_URL = 'http://localhost:8000/api/v1'
+// 生产环境改为你的服务器地址
+// const BASE_URL = 'https://your-domain.com/api/v1'
+```
+
+#### 微信小程序 AppID 配置
+
+在 `miniprogram/manifest.json` 中配置微信小程序 AppID：
+
+```json
+{
+  "mp-weixin": {
+    "appid": "你的微信小程序AppID",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "postcss": true,
+      "minified": true
+    }
+  }
+}
+```
+
+#### 跨域问题
+
+开发模式下，微信小程序需要关闭域名校验：
+
+1. 打开微信开发者工具
+2. 点击右上角 **详情**
+3. 找到 **本地设置**
+4. 勾选 **不校验合法域名**
+
+#### 小程序 TabBar
+
+在 `miniprogram/pages.json` 中配置了 4 个 Tab 页：
+
+```json
+{
+  "tabBar": {
+    "list": [
+      { "pagePath": "pages/index/index", "text": "首页" },
+      { "pagePath": "pages/chat/chat", "text": "咨询" },
+      { "pagePath": "pages/recipes/recipes", "text": "食谱" },
+      { "pagePath": "pages/profile/profile", "text": "我的" }
+    ]
+  }
+}
+```
+
+需要在 `miniprogram/static/tabbar/` 目录下放置对应的图标文件（home.png, chat.png, recipes.png, profile.png 及对应的 active 版本）。
+
+### 小程序与 Web 端的区别
+
+| 特性 | Web 端 | 小程序端 |
+|------|--------|----------|
+| 技术栈 | Vue 3 + Vant 4 + Vite | uni-app + Vue 3 |
+| 状态管理 | Pinia | uni.setStorageSync（本地存储） |
+| 路由 | Vue Router | uni-app 原生路由 |
+| HTTP 请求 | Axios | uni.request |
+| 文件上传 | Axios FormData | uni.uploadFile |
+| UI 组件 | Vant 4 | 原生组件 + 自定义样式 |
+| 图片选择 | input file | uni.chooseImage |
+| 部署 | Web 服务器 | 小程序平台审核发布 |
 
 ---
 
