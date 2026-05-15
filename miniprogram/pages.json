@@ -1,0 +1,108 @@
+{
+  "pages": [
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/chat/chat",
+      "style": {
+        "navigationBarTitleText": "营养咨询",
+        "navigationBarBackgroundColor": "#10b981",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/recipes/recipes",
+      "style": {
+        "navigationBarTitleText": "食谱推荐",
+        "navigationBarBackgroundColor": "#10b981",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/knowledge/knowledge",
+      "style": {
+        "navigationBarTitleText": "营养知识",
+        "navigationBarBackgroundColor": "#10b981",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/health-profile/health-profile",
+      "style": {
+        "navigationBarTitleText": "健康档案",
+        "navigationBarBackgroundColor": "#10b981",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/diet-preferences/diet-preferences",
+      "style": {
+        "navigationBarTitleText": "饮食偏好",
+        "navigationBarBackgroundColor": "#10b981",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/health-goals/health-goals",
+      "style": {
+        "navigationBarTitleText": "健康目标",
+        "navigationBarBackgroundColor": "#10b981",
+        "navigationBarTextStyle": "white"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "智能营养顾问",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#10b981",
+    "borderStyle": "white",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/chat/chat",
+        "text": "咨询",
+        "iconPath": "static/tabbar/chat.png",
+        "selectedIconPath": "static/tabbar/chat-active.png"
+      },
+      {
+        "pagePath": "pages/recipes/recipes",
+        "text": "食谱",
+        "iconPath": "static/tabbar/recipes.png",
+        "selectedIconPath": "static/tabbar/recipes-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "static/tabbar/profile.png",
+        "selectedIconPath": "static/tabbar/profile-active.png"
+      }
+    ]
+  }
+}
