@@ -15,12 +15,17 @@
             </div>
           </div>
 
-          <div class="form-row">
-            <div class="form-field" @click="showMealPicker = true">
-              <label>餐次</label>
-              <div class="field-value">
-                <span :class="{ placeholder: !selectedMealType }">{{ selectedMealType || '选择餐次' }}</span>
-                <van-icon name="arrow-down" size="12" color="#94a3b8" />
+          <div class="form-row meal-type-row">
+            <label class="meal-label">餐次</label>
+            <div class="meal-chips">
+              <div
+                v-for="opt in mealTypePickerOptions"
+                :key="opt.value"
+                class="meal-chip"
+                :class="{ active: selectedMealType === opt.text || (opt.value === '' && !selectedMealType) }"
+                @click="selectMealType(opt)"
+              >
+                {{ opt.text }}
               </div>
             </div>
           </div>
@@ -28,12 +33,85 @@
           <div class="form-row">
             <div class="form-field full">
               <label>可用食材</label>
-              <input
-                v-model="availableIngredients"
-                type="text"
-                placeholder="输入您已有的食材，用逗号分隔"
-                class="field-input"
-              />
+              <div class="field-input-wrapper">
+                <input
+                  v-model="availableIngredients"
+                  type="text"
+                  placeholder="输入或选择您已有的食材"
+                  class="field-input"
+                />
+                <button class="select-btn" @click="showIngredientPicker = true">
+                  <van-icon name="add-o" size="18" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="recognize-section">
+            <div class="recognize-header">
+              <van-icon name="photograph" size="14" />
+              <span>拍照识别食材</span>
+            </div>
+            <div class="recognize-area">
+              <div class="url-input-row">
+                <input
+                  v-model="imageUrl"
+                  type="text"
+                  placeholder="粘贴图片URL"
+                  class="url-input"
+                />
+                <button class="url-btn" @click="recognizeFromUrl" :disabled="recognizeLoading">
+                  <van-loading v-if="recognizeLoading" size="14" />
+                  <span v-else>识别</span>
+                </button>
+              </div>
+              <div class="upload-area">
+                <van-uploader
+                  v-model:file-list="fileList"
+                  :after-read="afterRead"
+                  accept="image/*"
+                  max-count="1"
+                  :disabled="recognizeLoading"
+                >
+                  <div class="upload-trigger" :class="{ loading: recognizeLoading }">
+                    <van-loading v-if="recognizeLoading" size="20" />
+                    <template v-else>
+                      <van-icon name="photograph" size="24" color="#94a3b8" />
+                      <span>上传图片识别</span>
+                    </template>
+                  </div>
+                </van-uploader>
+              </div>
+            </div>
+            <div v-if="recognizedIngredients" class="recognize-result">
+              <div class="result-tag">
+                <van-icon name="passed" size="14" />
+                <span>识别成功</span>
+              </div>
+              <p class="result-text">{{ recognizedIngredients }}</p>
+              <button class="use-btn" @click="useRecognizedIngredients">
+                <van-icon name="add-o" size="14" />
+                <span>添加到可用食材</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="season-quick-select">
+            <div class="season-label">
+              <van-icon name="calendar" size="14" />
+              <span>快速季节推荐</span>
+            </div>
+            <div class="season-chips">
+              <div
+                v-for="season in seasons"
+                :key="season.value"
+                class="season-chip"
+                :class="'chip-' + season.value"
+                @click="getSeasonalRecipes(season.value)"
+              >
+                <span>{{ season.emoji }}</span>
+                <span class="chip-text">{{ season.text }}</span>
+              </div>
             </div>
           </div>
 
@@ -50,69 +128,6 @@
             <span>推荐结果</span>
           </div>
           <div class="result-body">{{ aiRecommendation }}</div>
-        </div>
-      </div>
-
-      <div class="feature-section">
-        <h4 class="section-title">
-          <van-icon name="photograph" size="16" />
-          食材识别
-        </h4>
-        <div class="section-card">
-          <div class="recognize-area">
-            <div class="url-input-row">
-              <input
-                v-model="imageUrl"
-                type="text"
-                placeholder="粘贴图片URL进行识别"
-                class="url-input"
-              />
-              <button class="url-btn" @click="recognizeFromUrl" :disabled="recognizeLoading">
-                识别
-              </button>
-            </div>
-            <div class="upload-area">
-              <van-uploader
-                v-model:file-list="fileList"
-                :after-read="afterRead"
-                accept="image/*"
-                max-count="1"
-              >
-                <div class="upload-trigger">
-                  <van-icon name="plus" size="24" color="#94a3b8" />
-                  <span>上传图片识别</span>
-                </div>
-              </van-uploader>
-            </div>
-          </div>
-          <div v-if="recognizedIngredients" class="recognize-result">
-            <div class="result-tag">
-              <van-icon name="passed" size="14" />
-              <span>识别成功</span>
-            </div>
-            <p class="result-text">{{ recognizedIngredients }}</p>
-            <button class="use-btn" @click="useRecognizedIngredients">使用此结果</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="feature-section">
-        <h4 class="section-title">
-          <van-icon name="flower-o" size="16" />
-          季节推荐
-        </h4>
-        <div class="season-grid">
-          <div
-            v-for="season in seasons"
-            :key="season.value"
-            class="season-card"
-            :class="'season-' + season.value"
-            @click="getSeasonalRecipes(season.value)"
-          >
-            <div class="season-emoji">{{ season.emoji }}</div>
-            <span class="season-name">{{ season.text }}</span>
-            <van-icon name="arrow" size="12" class="season-arrow" />
-          </div>
         </div>
       </div>
 
@@ -145,22 +160,72 @@
       </div>
     </div>
 
-    <van-popup v-model:show="showMealPicker" position="bottom" round>
-      <div class="picker-header">
-        <span @click="showMealPicker = false">取消</span>
-        <strong>选择餐次</strong>
-        <span></span>
-      </div>
-      <div class="picker-options">
-        <div
-          v-for="opt in mealTypePickerOptions"
-          :key="opt.value"
-          class="picker-option"
-          :class="{ active: selectedMealType === opt.text && opt.value !== '' || selectedMealType === opt.value }"
-          @click="selectMealType(opt)"
-        >
-          {{ opt.text }}
-          <van-icon v-if="(opt.value === '' ? !selectedMealType : selectedMealType === (opt.value || opt.text))" name="success" size="16" color="#10b981" />
+    <van-popup
+      :show="showIngredientPicker"
+      position="bottom"
+      round
+      teleport="body"
+      :style="{ height: '70vh' }"
+      @update:show="showIngredientPicker = $event"
+    >
+      <div class="ingredient-picker">
+        <div class="picker-header">
+          <span @click="showIngredientPicker = false">取消</span>
+          <strong>选择食材</strong>
+          <span @click="confirmIngredients" style="color: #10b981;">确认</span>
+        </div>
+
+        <div class="ingredient-search">
+          <input
+            v-model="ingredientSearch"
+            type="text"
+            placeholder="搜索食材..."
+            class="search-input"
+          />
+        </div>
+
+        <div class="ingredient-content">
+          <div
+            v-for="category in filteredIngredientCategories"
+            :key="category.name"
+            class="ingredient-category"
+          >
+            <div class="category-header">
+              <span>{{ category.emoji }}</span>
+              <span class="category-name">{{ category.name }}</span>
+              <span class="category-count">{{ category.items.filter(i => selectedIngredients.includes(i.name)).length }}/{{ category.items.length }}</span>
+            </div>
+            <div class="ingredient-grid">
+              <div
+                v-for="item in category.items"
+                :key="item.name"
+                class="ingredient-item"
+                :class="{ selected: selectedIngredients.includes(item.name) }"
+                @click="toggleIngredient(item.name)"
+              >
+                <span class="item-emoji">{{ item.emoji }}</span>
+                <span class="item-name">{{ item.name }}</span>
+                <van-icon v-if="selectedIngredients.includes(item.name)" name="success" size="14" color="#10b981" class="item-check" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="selected-summary">
+          <div class="summary-header">
+            <span>已选择 {{ selectedIngredients.length }} 种食材</span>
+            <span class="clear-btn" @click="selectedIngredients = []">清空</span>
+          </div>
+          <div v-if="selectedIngredients.length > 0" class="summary-tags">
+            <span
+              v-for="ingredient in selectedIngredients"
+              :key="ingredient"
+              class="summary-tag"
+            >
+              {{ ingredient }}
+              <van-icon name="cross" size="12" @click="toggleIngredient(ingredient)" />
+            </span>
+          </div>
         </div>
       </div>
     </van-popup>
@@ -168,7 +233,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { recipesAPI } from '@/api'
 import { showToast } from 'vant'
@@ -188,6 +253,9 @@ const fileList = ref([])
 const substituteIngredient = ref('')
 const substituteResult = ref('')
 const showMealPicker = ref(false)
+const showIngredientPicker = ref(false)
+const selectedIngredients = ref([])
+const ingredientSearch = ref('')
 
 const seasons = [
   { text: '春季', value: 'spring', emoji: '🌸' },
@@ -195,6 +263,115 @@ const seasons = [
   { text: '秋季', value: 'autumn', emoji: '🍂' },
   { text: '冬季', value: 'winter', emoji: '❄️' }
 ]
+
+const ingredientCategories = [
+  {
+    name: '蛋白质',
+    emoji: '🥩',
+    items: [
+      { name: '鸡胸肉', emoji: '🍗' },
+      { name: '牛肉', emoji: '🥩' },
+      { name: '猪肉', emoji: '🥓' },
+      { name: '羊肉', emoji: '🍖' },
+      { name: '三文鱼', emoji: '🐟' },
+      { name: '虾', emoji: '🦐' },
+      { name: '鸡蛋', emoji: '🥚' },
+      { name: '豆腐', emoji: '🧈' },
+      { name: '牛奶', emoji: '🥛' },
+      { name: '酸奶', emoji: '🥛' }
+    ]
+  },
+  {
+    name: '蔬菜',
+    emoji: '🥬',
+    items: [
+      { name: '西兰花', emoji: '🥦' },
+      { name: '菠菜', emoji: '🥬' },
+      { name: '胡萝卜', emoji: '🥕' },
+      { name: '西红柿', emoji: '🍅' },
+      { name: '黄瓜', emoji: '🥒' },
+      { name: '茄子', emoji: '🍆' },
+      { name: '青椒', emoji: '🫑' },
+      { name: '洋葱', emoji: '🧅' },
+      { name: '土豆', emoji: '🥔' },
+      { name: '南瓜', emoji: '🎃' },
+      { name: '玉米', emoji: '🌽' },
+      { name: '芹菜', emoji: '🥬' }
+    ]
+  },
+  {
+    name: '水果',
+    emoji: '🍎',
+    items: [
+      { name: '苹果', emoji: '🍎' },
+      { name: '香蕉', emoji: '🍌' },
+      { name: '橙子', emoji: '🍊' },
+      { name: '葡萄', emoji: '🍇' },
+      { name: '蓝莓', emoji: '🫐' },
+      { name: '草莓', emoji: '🍓' },
+      { name: '猕猴桃', emoji: '🥝' },
+      { name: '梨', emoji: '🍐' },
+      { name: '西瓜', emoji: '🍉' },
+      { name: '芒果', emoji: '🥭' }
+    ]
+  },
+  {
+    name: '谷物',
+    emoji: '🍚',
+    items: [
+      { name: '糙米', emoji: '🍚' },
+      { name: '燕麦', emoji: '🥣' },
+      { name: '全麦面包', emoji: '🍞' },
+      { name: '荞麦', emoji: '🌾' },
+      { name: '紫米', emoji: '🍚' },
+      { name: '小米', emoji: '🌾' },
+      { name: '藜麦', emoji: '🍚' },
+      { name: '面条', emoji: '🍝' }
+    ]
+  },
+  {
+    name: '坚果',
+    emoji: '🥜',
+    items: [
+      { name: '杏仁', emoji: '🌰' },
+      { name: '核桃', emoji: '🥜' },
+      { name: '花生', emoji: '🥜' },
+      { name: '腰果', emoji: '🌰' },
+      { name: '开心果', emoji: '🌰' },
+      { name: '芝麻', emoji: '🌾' }
+    ]
+  },
+  {
+    name: '其他',
+    emoji: '🧂',
+    items: [
+      { name: '橄榄油', emoji: '🫒' },
+      { name: '蜂蜜', emoji: '🍯' },
+      { name: '黑木耳', emoji: '🍄' },
+      { name: '香菇', emoji: '🍄' },
+      { name: '海带', emoji: '🌿' },
+      { name: '紫菜', emoji: '🌿' }
+    ]
+  }
+]
+
+const filteredIngredientCategories = ref([])
+
+function updateFilteredCategories() {
+  if (!ingredientSearch.value) {
+    filteredIngredientCategories.value = ingredientCategories
+  } else {
+    const search = ingredientSearch.value.toLowerCase()
+    filteredIngredientCategories.value = ingredientCategories
+      .map(cat => ({
+        ...cat,
+        items: cat.items.filter(item => item.name.toLowerCase().includes(search))
+      }))
+      .filter(cat => cat.items.length > 0)
+  }
+}
+
+watch(ingredientSearch, updateFilteredCategories)
 
 const mealTypePickerOptions = [
   { text: '不限', value: '' },
@@ -210,7 +387,20 @@ function selectMealType(opt) {
   } else {
     selectedMealType.value = opt.text
   }
-  showMealPicker.value = false
+}
+
+function toggleIngredient(name) {
+  const index = selectedIngredients.value.indexOf(name)
+  if (index > -1) {
+    selectedIngredients.value.splice(index, 1)
+  } else {
+    selectedIngredients.value.push(name)
+  }
+}
+
+function confirmIngredients() {
+  availableIngredients.value = selectedIngredients.value.join(', ')
+  showIngredientPicker.value = false
 }
 
 async function getAIRecommendation() {
@@ -317,7 +507,9 @@ async function getSubstitute() {
   }
 }
 
-onMounted(() => {})
+onMounted(() => {
+  updateFilteredCategories()
+})
 </script>
 
 <style scoped>
@@ -424,6 +616,53 @@ onMounted(() => {})
   color: #c4cbd5;
 }
 
+.meal-type-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.meal-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.meal-chips {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.meal-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.meal-chip:active {
+  transform: scale(0.95);
+}
+
+.meal-chip.active {
+  border-color: #10b981;
+  background: #f0fdf4;
+  color: #059669;
+  font-weight: 600;
+}
+
 .field-input {
   width: 100%;
   border: none;
@@ -459,6 +698,138 @@ onMounted(() => {})
 .recommend-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.season-quick-select {
+  margin-bottom: 16px;
+  padding: 14px;
+  background: linear-gradient(135deg, #fff7ed, #fef3c7);
+  border-radius: var(--radius-md);
+  border: 1.5px dashed #fbbf24;
+}
+
+.season-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 10px;
+}
+
+.season-chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.season-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 10px;
+  background: white;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.season-chip:active {
+  transform: scale(0.95);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.chip-spring {
+  border: 1.5px solid #fecdd3;
+  color: #be123c;
+}
+
+.chip-spring:active {
+  background: #fff1f2;
+}
+
+.chip-summer {
+  border: 1.5px solid #fef08a;
+  color: #a16207;
+}
+
+.chip-summer:active {
+  background: #fefce8;
+}
+
+.chip-autumn {
+  border: 1.5px solid #fed7aa;
+  color: #c2410c;
+}
+
+.chip-autumn:active {
+  background: #fff7ed;
+}
+
+.chip-winter {
+  border: 1.5px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
+.chip-winter:active {
+  background: #eff6ff;
+}
+
+.chip-text {
+  font-size: 12px;
+}
+
+.recognize-section {
+  margin-bottom: 16px;
+  padding: 14px;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border-radius: var(--radius-md);
+  border: 1.5px dashed #3b82f6;
+}
+
+.recognize-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e40af;
+  margin-bottom: 10px;
+}
+
+.upload-area {
+  margin-top: 10px;
+}
+
+.upload-trigger.loading {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.use-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 20px;
+  background: #3b82f6;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.use-btn:active {
+  transform: scale(0.98);
 }
 
 .result-card {
@@ -766,5 +1137,197 @@ onMounted(() => {})
 .picker-option.active {
   color: #10b981;
   font-weight: 600;
+}
+
+.ingredient-picker {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ingredient-search {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  font-size: 14px;
+  outline: none;
+  transition: var(--transition);
+  background: #f8fafc;
+}
+
+.search-input:focus {
+  border-color: #10b981;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08);
+}
+
+.ingredient-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+
+.ingredient-category {
+  margin-bottom: 20px;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid #e2e8f0;
+}
+
+.category-header span:first-child {
+  font-size: 20px;
+}
+
+.category-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.category-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.ingredient-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ingredient-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.ingredient-item:active {
+  transform: scale(0.95);
+}
+
+.ingredient-item.selected {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.item-emoji {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.item-name {
+  font-size: 12px;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.item-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.selected-summary {
+  padding: 12px 16px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.clear-btn {
+  color: #ef4444;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.summary-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #10b981;
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.summary-tag .van-icon {
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.summary-tag .van-icon:hover {
+  opacity: 1;
+}
+
+.field-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.field-input-wrapper .field-input {
+  flex: 1;
+}
+
+.select-btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: #10b981;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.select-btn:active {
+  transform: scale(0.95);
+  background: #059669;
 }
 </style>

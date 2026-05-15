@@ -18,14 +18,29 @@ class RAGService:
         self.llm_api_key = settings.LLM_API_KEY
         self.llm_api_url = settings.LLM_API_URL
         self.llm_model = settings.LLM_MODEL_NAME
-        self._init_default_knowledge()
+        
+        force_reseed = (settings.VECTOR_DB_INIT_MODE == "dev" or 
+                       settings.VECTOR_DB_AUTO_RESEED)
+        self._init_default_knowledge(force_reseed=force_reseed)
     
-    def _init_default_knowledge(self):
-        """初始化默认知识库"""
+    def _init_default_knowledge(self, force_reseed: bool = False):
+        """初始化默认知识库
+        
+        Args:
+            force_reseed: 是否强制重新填充初始数据（仅用于开发环境）
+        """
         try:
             count = self.vector_db.count_vectors()
-            if count == 0:
+            
+            if count == 0 or force_reseed:
+                if count > 0 and force_reseed:
+                    logger.warning("强制重新填充初始知识，现有数据将被保留")
+                
                 self._seed_initial_knowledge()
+                logger.info(f"初始知识填充完成，当前知识数量：{self.vector_db.count_vectors()}")
+            else:
+                logger.info(f"知识库已包含 {count} 条数据，跳过初始填充")
+                
         except Exception as e:
             logger.warning(f"知识库初始化检查失败: {e}")
     

@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict
+from datetime import datetime
 from pydantic import BaseModel
 from app.database import get_db
 from app.models import User
 from app.utils import get_current_user
 from app.services.rag_service import rag_service
+from app.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -214,3 +216,99 @@ async def batch_add_knowledge(
         "success_count": success_count,
         "fail_count": fail_count
     }
+
+
+@router.post("/backup", summary="备份知识库数据")
+async def backup_knowledge(
+    current_user: User = Depends(get_current_user)
+):
+    """备份知识库数据"""
+    try:
+        if not current_user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="只有管理员可以执行此操作"
+            )
+        
+        data = rag_service.vector_db.export_data()
+        
+        return {
+            "success": True,
+            "data": data,
+            "total": len(data),
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"备份知识库失败: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@router.post("/restore", summary="恢复知识库数据")
+async def restore_knowledge(
+    data: List[Dict],
+    skip_existing: bool = True,
+    current_user: User = Depends(get_current_user)
+):
+    """恢复知识库数据"""
+    try:
+        if not current_user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="只有管理员可以执行此操作"
+            )
+        
+        stats = rag_service.vector_db.import_data(data, skip_existing)
+        
+        return {
+            "success": True,
+            "stats": stats,
+            "message": f"导入完成：成功 {stats['success']} 条，跳过 {stats['skipped']} 条，失败 {stats['failed']} 条"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"恢复知识库失败: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@router.post("/reseed", summary="重新填充初始知识")
+async def reseed_knowledge(
+    current_user: User = Depends(get_current_user)
+):
+    """重新填充初始知识（开发环境使用）"""
+    try:
+        if not current_user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="只有管理员可以执行此操作"
+            )
+        
+        if settings.VECTOR_DB_INIT_MODE != "dev":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="此操作仅在开发模式下可用"
+            )
+        
+        rag_service._seed_initial_knowledge()
+        
+        return {
+            "success": True,
+            "message": "初始知识重新填充完成",
+            "total": rag_service.vector_db.count_vectors()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"重新填充初始知识失败: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }

@@ -1,6 +1,7 @@
 import numpy as np
 from sqlalchemy import create_engine, text
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 import json
 import logging
 
@@ -13,28 +14,38 @@ class VectorDatabase:
         self._init_tables()
     
     def _init_tables(self):
-        """初始化向量数据库表"""
+        """初始化向量数据库表（安全模式：保留现有数据）"""
         with self.engine.connect() as conn:
-            conn.execute(text("DROP TABLE IF EXISTS knowledge_vectors CASCADE"))
-            
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS knowledge_vectors (
-                    id SERIAL PRIMARY KEY,
-                    content TEXT NOT NULL,
-                    content_type VARCHAR(50),
-                    metadata TEXT,
-                    embedding TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            check_table_sql = text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'knowledge_vectors'
                 )
-            """))
+            """)
+            table_exists = conn.execute(check_table_sql).scalar()
             
-            conn.execute(text("""
-                CREATE INDEX IF NOT EXISTS idx_content_type 
-                ON knowledge_vectors(content_type)
-            """))
-            
-            conn.commit()
-            logger.info("向量数据库表初始化完成")
+            if not table_exists:
+                conn.execute(text("""
+                    CREATE TABLE knowledge_vectors (
+                        id SERIAL PRIMARY KEY,
+                        content TEXT NOT NULL,
+                        content_type VARCHAR(50),
+                        metadata TEXT,
+                        embedding TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+                
+                conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS idx_content_type 
+                    ON knowledge_vectors(content_type)
+                """))
+                
+                conn.commit()
+                logger.info("向量数据库表创建完成")
+            else:
+                logger.info("向量数据库表已存在，跳过创建")
     
     def insert_vector(self, content: str, embedding: List[float], 
                      content_type: str = "general", metadata: Optional[Dict] = None) -> int:
@@ -178,6 +189,88 @@ class VectorDatabase:
             else:
                 result = conn.execute(text("SELECT COUNT(*) FROM knowledge_vectors"))
             return result.fetchone()[0]
+    
+    def export_data(self) -> List[Dict[str, Any]]:
+        """导出所有向量数据"""
+        with self.engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT id, content, content_type, metadata, embedding, created_at
+                FROM knowledge_vectors
+                ORDER BY created_at DESC
+            """))
+            rows = result.fetchall()
+            
+            return [
+                {
+                    "id": row[0],
+                    "content": row[1],
+                    "content_type": row[2],
+                    "metadata": json.loads(row[3]) if row[3] else None,
+                    "embedding": json.loads(row[4]) if row[4] else None,
+                    "created_at": row[5].isoformat() if row[5] else None
+                }
+                for row in rows
+            ]
+    
+    def import_data(self, data: List[Dict[str, Any]], skip_existing: bool = True) -> Dict[str, int]:
+        """导入向量数据
+        
+        Args:
+            data: 要导入的数据列表
+            skip_existing: 是否跳过已存在的数据（基于content）
+            
+        Returns:
+            导入统计信息 {"success": 成功数量, "skipped": 跳过数量, "failed": 失败数量}
+        """
+        stats = {"success": 0, "skipped": 0, "failed": 0}
+        
+        with self.engine.connect() as conn:
+            for item in data:
+                try:
+                    if skip_existing:
+                        check_sql = text("""
+                            SELECT id FROM knowledge_vectors 
+                            WHERE content = :content LIMIT 1
+                        """)
+                        existing = conn.execute(check_sql, {"content": item["content"]}).fetchone()
+                        
+                        if existing:
+                            stats["skipped"] += 1
+                            continue
+                    
+                    embedding_str = json.dumps(item["embedding"]) if item.get("embedding") else None
+                    metadata_str = json.dumps(item["metadata"]) if item.get("metadata") else None
+                    
+                    created_at = item.get("created_at")
+                    if isinstance(created_at, str):
+                        try:
+                            created_at = datetime.fromisoformat(created_at)
+                        except (ValueError, TypeError):
+                            created_at = datetime.now()
+                    elif not created_at:
+                        created_at = datetime.now()
+                    
+                    conn.execute(text("""
+                        INSERT INTO knowledge_vectors 
+                        (content, content_type, metadata, embedding, created_at)
+                        VALUES (:content, :content_type, :metadata, :embedding, :created_at)
+                    """), {
+                        "content": item["content"],
+                        "content_type": item.get("content_type", "general"),
+                        "metadata": metadata_str,
+                        "embedding": embedding_str,
+                        "created_at": created_at
+                    })
+                    
+                    stats["success"] += 1
+                    
+                except Exception as e:
+                    logger.error(f"导入数据失败: {e}")
+                    stats["failed"] += 1
+            
+            conn.commit()
+        
+        return stats
 
 
 class EmbeddingService:
