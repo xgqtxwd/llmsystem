@@ -1,4 +1,5 @@
-const BASE_URL = 'http://localhost:8000/api/v1'
+// 使用相对路径，配合 vite.config.js 的代理设置，解决 H5 跨域问题
+const BASE_URL = '/api/v1'
 
 function getToken() {
   return uni.getStorageSync('token') || ''
