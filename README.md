@@ -665,45 +665,6 @@ npm run dev
 
 ---
 
-## 配置说明
-
-所有配置集中在 `backend/app/config.py`，可通过 `.env` 文件覆盖：
-
-```python
-# MySQL 数据库 (关系数据)
-DB_HOST=8.137.169.98
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=Admin0704
-DB_NAME=mydb
-
-# PostgreSQL 数据库 (向量数据)
-VECTOR_DB_HOST=8.137.169.98
-VECTOR_DB_PORT=5432
-VECTOR_DB_USER=postgres
-VECTOR_DB_PASSWORD=111111
-VECTOR_DB_NAME=postgres
-
-# JWT 认证
-SECRET_KEY=nutrition-advisor-secret-key-2024
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440  # 24 小时
-
-# LLM (豆包 Doubao)
-LLM_API_KEY=3cbc368c-e813-4300-890b-804b05504b53
-LLM_API_URL=https://ark.cn-beijing.volces.com/api/v3
-LLM_MODEL_NAME=doubao-seed-2-0-lite-260215
-
-# Embedding (阿里 DashScope)
-DASHSCOPE_API_KEY=sk-ddeca8262dff4c4c89087242035177b6
-EMBEDDING_MODEL=text-embedding-v4
-EMBEDDING_DIMENSION=1024
-
-# 视觉模型 (阿里 DashScope)
-VISION_LLM_API_KEY=sk-ddeca8262dff4c4c89087242035177b6
-VISION_LLM_MODEL=qwen-vl-plus
-VISION_LLM_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-```
 
 ### 前端 API 代理配置
 
