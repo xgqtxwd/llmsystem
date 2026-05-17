@@ -126,7 +126,7 @@ export default {
         this.loading = false
       }
     },
-    loadMore() {
+    async loadMore() {
       if (this.loadingMore) return
       this.page++
       this.loadingMore = true
