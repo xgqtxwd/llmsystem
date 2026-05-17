@@ -1,13 +1,13 @@
 {
   "pages": [
     {
-      "path": "pages/login/login",
+      "path": "pages/index/index",
       "style": {
         "navigationStyle": "custom"
       }
     },
     {
-      "path": "pages/index/index",
+      "path": "pages/login/login",
       "style": {
         "navigationStyle": "custom"
       }
@@ -81,27 +81,19 @@
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "首页",
-        "iconPath": "static/tabbar/home.png",
-        "selectedIconPath": "static/tabbar/home-active.png"
+        "text": "首页"
       },
       {
         "pagePath": "pages/chat/chat",
-        "text": "咨询",
-        "iconPath": "static/tabbar/chat.png",
-        "selectedIconPath": "static/tabbar/chat-active.png"
+        "text": "咨询"
       },
       {
         "pagePath": "pages/recipes/recipes",
-        "text": "食谱",
-        "iconPath": "static/tabbar/recipes.png",
-        "selectedIconPath": "static/tabbar/recipes-active.png"
+        "text": "食谱"
       },
       {
         "pagePath": "pages/profile/profile",
-        "text": "我的",
-        "iconPath": "static/tabbar/profile.png",
-        "selectedIconPath": "static/tabbar/profile-active.png"
+        "text": "我的"
       }
     ]
   }

@@ -119,6 +119,11 @@ export default {
     }
   },
   onShow() {
+    const token = uni.getStorageSync('token')
+    if (!token) {
+      uni.reLaunch({ url: '/pages/login/login' })
+      return
+    }
     this.user = this.getUserInfo()
     this.loadHealthProfile()
   },
